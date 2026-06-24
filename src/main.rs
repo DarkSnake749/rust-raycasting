@@ -3,7 +3,7 @@ mod palette;
 
 const CELL_SIZE: f32 = 32.;
 const CAMERA_SIZE: f32 = 8.;
-const CAMERA_SPEED: f32 = 3.;
+const CAMERA_SPEED: f32 = 1.5;
 
 struct Map {
     data: Vec<u8>,
@@ -103,11 +103,10 @@ fn camera_dir(cam: &mut Camera) {
 }
 
 fn update_cam_pos(cam: &mut Camera) {
-    if is_key_down(KeyCode::W) {
-        cam.vel = cam.dir * CAMERA_SPEED;
-    } else {
-        cam.vel = Vec2::new(0., 0.);
+    if !is_key_down(KeyCode::W) {
+        return;
     }
 
+    cam.vel = cam.dir * CAMERA_SPEED;
     cam.pos += cam.vel;
 }
