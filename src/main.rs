@@ -2,7 +2,7 @@ use macroquad::prelude::*;
 mod palette;
 
 const CELL_SIZE: f32 = 32.;
-const PLAYER_SIZE: f32 = 16.;
+const CAMERA_SIZE: f32 = 16.;
 
 struct Map {
     data: Vec<u8>,
