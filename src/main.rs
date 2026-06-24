@@ -49,8 +49,15 @@ fn draw_map(map: &Map) {
             draw_rectangle(
                 (x as f32) *CELL_SIZE, (y as f32) *CELL_SIZE, 
                 CELL_SIZE, CELL_SIZE, 
-                palette::DARK_GREY
+                palette::LIGHT_GREY
             );
+            continue;
         }
+
+        draw_rectangle(                
+            (x as f32) *CELL_SIZE, (y as f32) *CELL_SIZE, 
+            CELL_SIZE, CELL_SIZE, 
+            palette::DARK_GREY
+        );
     }}
 }
