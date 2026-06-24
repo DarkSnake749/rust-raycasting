@@ -1,3 +1,5 @@
+use macroquad::prelude::*;
+
 fn main() {
-    println!("Hello, world!");
+    println!("Hello, macroquad!");
 }
