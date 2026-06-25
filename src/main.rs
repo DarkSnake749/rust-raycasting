@@ -140,8 +140,7 @@ fn camera_collisions(cam: &mut Camera, map: &Map) {
             cam.pos.y - closest_pos.y );
         
         if dist <= CAMERA_SIZE * CAMERA_SIZE {
-            cam.pos = collision_placement(cam.pos, cell_top_pos, cell_bottom_pos, closest_pos);
-            println!("Cam pos: {}", collision_placement(cam.pos, cell_top_pos, cell_bottom_pos, closest_pos));
+            cam.pos = resolve_collisions(cam.pos, cell_top_pos, cell_bottom_pos);
 
             // ! For debug only
             draw_circle(closest_pos.x, closest_pos.y, 3., palette::DARK_RED);
@@ -151,22 +150,25 @@ fn camera_collisions(cam: &mut Camera, map: &Map) {
     }
 }
 
-fn collision_placement(cam_pos: Vec2, top_pos: Vec2, bottom_pos: Vec2, closest_pos: Vec2) -> Vec2 {
-    let mut new_cam_pos = cam_pos;
+fn resolve_collisions(cam_pos: Vec2, min: Vec2, max: Vec2) -> Vec2 {
+    let mut new_pos = cam_pos;
+
+    let overlap_left   = (cam_pos.x + CAMERA_SIZE) - min.x;
+    let overlap_right  = max.x - (cam_pos.x - CAMERA_SIZE);
+    let overlap_top    = (cam_pos.y + CAMERA_SIZE) - min.y;
+    let overlap_bottom = max.y - (cam_pos.y - CAMERA_SIZE);
+
+    let overlap = Vec2::new(
+        overlap_left.min(overlap_right),
+        overlap_top.min(overlap_bottom));
     
-    // Y
-    if closest_pos.y == top_pos.y {
-        new_cam_pos.y = top_pos.y - CAMERA_SIZE;
-    } else if closest_pos.y == bottom_pos.y {
-        new_cam_pos.y = bottom_pos.y + CAMERA_SIZE;
+    if overlap.x < overlap.y {
+        if overlap_left < overlap_right { new_pos.x -= overlap_left; }
+        else { new_pos.x += overlap_right; }
+    } else {
+        if overlap_top < overlap_bottom { new_pos.y -= overlap_top; }
+        else { new_pos.y += overlap_bottom }
     }
 
-    // X
-    if closest_pos.x == top_pos.x {
-        new_cam_pos.x = top_pos.x - CAMERA_SIZE;
-    } else if closest_pos.x == bottom_pos.x {
-        new_cam_pos.x = bottom_pos.x + CAMERA_SIZE;
-    }
-
-    new_cam_pos
+    new_pos
 }
