@@ -1,4 +1,4 @@
-use macroquad::{prelude::*, ui::KeyCode::Y};
+use macroquad::prelude::*;
 mod palette;
 
 const CELL_SIZE: f32 = 32.;
@@ -203,25 +203,41 @@ fn test_ray(cam: &Camera, map: &Map) {
         if cam.dir.y > 0.0 { 1. } else { -1. },
     );
 
-    let mut color = YELLOW;
-    for _ in 0..(map.width.max(map.height) - 1) {
+    let mut hit_x: bool = false;
+    while map.data[((map_pos.y as usize) * map.width) + (map_pos.x as usize)] == 0 {
+
         let t = side_dist.x.min(side_dist.y);
         let hit = unit_pos + cam.dir * t;
         let new_pos = scale_up_position(hit);
 
-        draw_circle(new_pos.x, new_pos.y, 3., color);
+        draw_circle(new_pos.x, new_pos.y, 3., YELLOW);
         if side_dist.x < side_dist.y {
+            hit_x = true;
             side_dist.x += delta_dist.x;
             map_pos.x += step.x;
         } else {
+            hit_x = false;
             side_dist.y += delta_dist.y;
             map_pos.y += step.y;
         }
-
-        if map.data[((map_pos.y as usize) * map.width) + (map_pos.x as usize)] == 1 {
-            break;
-        }
     }
+    test_project_ray(hit_x, delta_dist, side_dist);
+
+}
+
+fn test_project_ray(hit_x: bool, delta_dist: Vec2, side_dist: Vec2) {
+    let perp_dist = if hit_x {
+        side_dist.x - delta_dist.x
+    } else {
+        side_dist.y - delta_dist.y
+    };
+
+    let line_height = screen_height() / perp_dist;
+    let x_pos = screen_width() / 2.;
+    let start = screen_height() / 2. - line_height / 2.;
+    let end = screen_height() / 2. + line_height / 2.;
+
+    draw_line(x_pos, start, x_pos, end, 5., LIME);
 }
 
 fn scale_up_position(pos: Vec2) -> Vec2 {
