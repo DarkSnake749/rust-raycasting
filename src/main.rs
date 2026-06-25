@@ -46,6 +46,8 @@ async fn main() {
         vel: Vec2::new(0., 0.),
     };
 
+    let mut min_map_visible = true;
+
     loop {
         clear_background(palette::BLACK);
 
@@ -53,8 +55,10 @@ async fn main() {
             break;
         }
         
-        draw_map(&map);
-        draw_camera(&cam);
+        if min_map_visible {
+            draw_map(&map);
+            draw_camera(&cam);
+        }
 
         camera_dir(&mut cam);
         update_cam_pos(&mut cam);
