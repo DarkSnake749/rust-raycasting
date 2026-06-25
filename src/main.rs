@@ -1,4 +1,4 @@
-use macroquad::prelude::*;
+use macroquad::{prelude::*, ui::KeyCode::Y};
 mod palette;
 
 const CELL_SIZE: f32 = 32.;
@@ -60,6 +60,8 @@ async fn main() {
         update_cam_pos(&mut cam);
         camera_collisions(&mut cam, &map);
 
+        test_ray(&cam, &map);
+
         next_frame().await
     }
 }
@@ -98,9 +100,6 @@ fn camera_dir(cam: &mut Camera) {
     };
 
     cam.dir = dir_vec.normalize();
-
-    // ! For debug only
-    //draw_line(cam.x, cam.y, mouse_position().0, mouse_position().1, 3., palette::DARK_RED);
 }
 
 fn update_cam_pos(cam: &mut Camera) {
@@ -141,9 +140,6 @@ fn camera_collisions(cam: &mut Camera, map: &Map) {
         
         if dist <= CAMERA_SIZE * CAMERA_SIZE {
             cam.pos = resolve_collisions(cam.pos, cell_top_pos, cell_bottom_pos);
-
-            // ! For debug only
-            draw_circle(closest_pos.x, closest_pos.y, 3., palette::DARK_RED);
         } 
 
     }
@@ -171,4 +167,77 @@ fn resolve_collisions(cam_pos: Vec2, min: Vec2, max: Vec2) -> Vec2 {
     }
 
     new_pos
+}
+
+fn test_ray(cam: &Camera, map: &Map) {
+    draw_line(
+        cam.pos.x, 
+        cam.pos.y, 
+        cam.pos.x + cam.dir.x * CELL_SIZE * (map.width as f32), 
+        cam.pos.y + cam.dir.y * CELL_SIZE * (map.height as f32), 
+        3., 
+        GREEN);
+    
+    let unit_pos = scale_down_position(cam.pos);
+    let mut map_pos = map_position(unit_pos);
+
+    let delta_dist = Vec2::new(
+        (1. / cam.dir.x).abs(),
+        (1. / cam.dir.y).abs()
+    );
+
+    let mut side_dist = Vec2::new(0., 0.);
+    if cam.dir.x > 0. { 
+        side_dist.x = (map_pos.x + 1. - unit_pos.x) * delta_dist.x; 
+    } else { 
+        side_dist.x = (unit_pos.x - map_pos.x) * delta_dist.x; 
+    }
+    if cam.dir.y > 0. { 
+        side_dist.y = (map_pos.y + 1. - unit_pos.y) * delta_dist.y; 
+    } else { 
+        side_dist.y = (unit_pos.y - map_pos.y) * delta_dist.y; 
+    }
+
+    let step = Vec2::new(
+        if cam.dir.x > 0.0 { 1. } else { -1. },
+        if cam.dir.y > 0.0 { 1. } else { -1. },
+    );
+
+    let mut color = YELLOW;
+    for _ in 0..(map.width.max(map.height) - 1) {
+        let t = side_dist.x.min(side_dist.y);
+        let hit = unit_pos + cam.dir * t;
+        let new_pos = scale_up_position(hit);
+
+        draw_circle(new_pos.x, new_pos.y, 3., color);
+        if side_dist.x < side_dist.y {
+            side_dist.x += delta_dist.x;
+            map_pos.x += step.x;
+        } else {
+            side_dist.y += delta_dist.y;
+            map_pos.y += step.y;
+        }
+
+        if map.data[((map_pos.y as usize) * map.width) + (map_pos.x as usize)] == 1 {
+            break;
+        }
+    }
+}
+
+fn scale_up_position(pos: Vec2) -> Vec2 {
+    Vec2::new(
+        pos.x * CELL_SIZE,
+        pos.y * CELL_SIZE)
+}
+
+fn scale_down_position(cam_pos: Vec2) -> Vec2 {
+    Vec2::new(
+        cam_pos.x / CELL_SIZE, 
+        cam_pos.y / CELL_SIZE)
+}
+
+fn map_position(pos: Vec2) -> Vec2 {
+    Vec2::new(
+        pos.x.floor(), 
+        pos.y.floor())
 }
