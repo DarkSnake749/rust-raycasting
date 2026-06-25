@@ -58,6 +58,7 @@ async fn main() {
 
         camera_dir(&mut cam);
         update_cam_pos(&mut cam);
+        camera_collisions(&mut cam, &map);
 
         next_frame().await
     }
@@ -109,4 +110,63 @@ fn update_cam_pos(cam: &mut Camera) {
 
     cam.vel = cam.dir * CAMERA_SPEED;
     cam.pos += cam.vel;
+}
+
+fn distance(dx: f32, dy: f32) -> f32 {
+    dx * dx + dy * dy
+}
+
+fn camera_collisions(cam: &mut Camera, map: &Map) {
+    for y in 0..map.height {
+    for x in 0..map.width {
+        if map.data[y * map.width + x] == 0 {
+            continue;
+        }
+
+        let cell_top_pos = Vec2::new(
+            (x as f32) * CELL_SIZE,
+            (y as f32) * CELL_SIZE );
+
+        let cell_bottom_pos = Vec2::new(
+            cell_top_pos.x + CELL_SIZE,
+            cell_top_pos.y + CELL_SIZE );
+        
+        let closest_pos = Vec2::new(
+            cam.pos.x.clamp(cell_top_pos.x, cell_bottom_pos.x),
+            cam.pos.y.clamp(cell_top_pos.y, cell_bottom_pos.y) );
+        
+        let dist = distance(
+            cam.pos.x - closest_pos.x,
+            cam.pos.y - closest_pos.y );
+        
+        if dist <= CAMERA_SIZE * CAMERA_SIZE {
+            cam.pos = collision_placement(cam.pos, cell_top_pos, cell_bottom_pos, closest_pos);
+            println!("Cam pos: {}", collision_placement(cam.pos, cell_top_pos, cell_bottom_pos, closest_pos));
+
+            // ! For debug only
+            draw_circle(closest_pos.x, closest_pos.y, 3., palette::DARK_RED);
+        } 
+
+    }
+    }
+}
+
+fn collision_placement(cam_pos: Vec2, top_pos: Vec2, bottom_pos: Vec2, closest_pos: Vec2) -> Vec2 {
+    let mut new_cam_pos = cam_pos;
+    
+    // Y
+    if closest_pos.y == top_pos.y {
+        new_cam_pos.y = top_pos.y - CAMERA_SIZE;
+    } else if closest_pos.y == bottom_pos.y {
+        new_cam_pos.y = bottom_pos.y + CAMERA_SIZE;
+    }
+
+    // X
+    if closest_pos.x == top_pos.x {
+        new_cam_pos.x = top_pos.x - CAMERA_SIZE;
+    } else if closest_pos.x == bottom_pos.x {
+        new_cam_pos.x = bottom_pos.x + CAMERA_SIZE;
+    }
+
+    new_cam_pos
 }
