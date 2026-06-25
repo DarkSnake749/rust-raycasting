@@ -53,6 +53,8 @@ async fn main() {
 
         if is_key_pressed(KeyCode::Escape) {
             break;
+        } else if is_key_pressed(KeyCode::M) {
+            min_map_visible = !min_map_visible;
         }
         
         if min_map_visible {
