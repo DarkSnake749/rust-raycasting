@@ -223,7 +223,6 @@ fn single_ray_projection(unit_pos: &Vec2, map_pos: &Vec2, map: &Map, dir: Vec2, 
     );
 
     let mut hit_x = false;
-    let mut final_pos: Vec2 = Vec2::new(-1., -1.);
     let mut i: usize = 0;
 
     while map.data[ ((map_pos.y as usize) * map.width) + (map_pos.x as usize) ] == 0 && i <= map.width * map.height {
@@ -267,7 +266,7 @@ fn project_ray(hit_x: bool, delta_dist: Vec2, side_dist: Vec2, x_pos: &f32) {
         palette::pseudo_light_interpolation(LIGHTGRAY, ( BRIGHTNESS_FACTOR / perp_dist ).min(1.)));
 }
 
-fn scale_up_position(pos: Vec2) -> Vec2 {
+fn _scale_up_position(pos: Vec2) -> Vec2 {
     Vec2::new(
         pos.x * CELL_SIZE,
         pos.y * CELL_SIZE)
