@@ -24,7 +24,7 @@ struct Camera {
 }
 
 struct Texture {
-    texture: Image,
+    image: Image,
     pixels: Vec<[u8;4]>
 }
 
@@ -105,7 +105,7 @@ async fn main() {
         update_cam_pos(&mut cam);
         camera_collisions(&mut cam, &map);
 
-        projection(&textures, &cam, &map);
+        projection(&cam, &map);
 
         if min_map_visible {
             draw_min_map(&map);
@@ -135,7 +135,7 @@ async fn main() {
 fn load_texture_data(texture: Image) -> Texture {
     let texture_data= texture.clone();
     Texture {
-        texture: texture,
+        image: texture,
         pixels: texture_data.clone().get_image_data().to_vec()
     }
 }
@@ -250,44 +250,23 @@ fn resolve_collisions(cam_pos: Vec2, min: Vec2, max: Vec2) -> Vec2 {
     new_pos
 }
 
-fn write_column_fast(image: &mut Image, x: usize, col: &[Color]) {
-    let width = image.width as usize;
-
-    let mut idx = x * 4;
-
-    for color in col {
-        image.bytes[idx + 0] = (color.r * 255.0) as u8;
-        image.bytes[idx + 1] = (color.g * 255.0) as u8;
-        image.bytes[idx + 2] = (color.b * 255.0) as u8;
-        image.bytes[idx + 3] = (color.a * 255.0) as u8;
-
-        idx += width * 4;
-    }
-}
-
-fn projection(textures: &[Texture], cam: &Camera, map: &Map) {
+fn projection(cam: &Camera, map: &Map) {
     let unit_pos = scale_down_position(cam.pos);
     let map_pos = map_position(unit_pos);
 
     let fov_factor = (cam.fov / 2.).tan();
     let cam_plane = Vec2::new(cam.dir.y * fov_factor, -cam.dir.x * fov_factor);
 
-    let mut image_buffer = Image::gen_image_color(screen_width() as u16, screen_height() as u16, palette::TRANS);
-
     for x in 0..(screen_width() as usize) {
         let x_draw_pos = 2. * x as f32 / screen_width() - 1.0;
         let ray_dir = Vec2::new(
             cam.dir.x + cam_plane.x * x_draw_pos,
             cam.dir.y + cam_plane.y * x_draw_pos);
-        let col = single_ray_projection(textures, &unit_pos, &map_pos, map, ray_dir, &(x as f32));
-        write_column_fast(&mut image_buffer, x, &col);
+        single_ray_projection(&unit_pos, &map_pos, map, ray_dir, &(x as f32));
     }
-
-    let rendered_screen = Texture2D::from_image(&image_buffer);
-    draw_texture(&rendered_screen, 0., 0., WHITE);
 }
 
-fn single_ray_projection(textures: &[Texture], unit_pos: &Vec2, map_pos: &Vec2, map: &Map, dir: Vec2, x_draw: &f32) -> Vec<Color> {
+fn single_ray_projection(unit_pos: &Vec2, map_pos: &Vec2, map: &Map, dir: Vec2, x_draw: &f32) {
     let mut map_pos = *map_pos;
 
     let step = Vec2::new(
@@ -310,11 +289,6 @@ fn single_ray_projection(textures: &[Texture], unit_pos: &Vec2, map_pos: &Vec2, 
     let mut i: usize = 0;
 
     while map.data[ ((map_pos.y as usize) * map.width) + (map_pos.x as usize) ] == 0 && i <= map.width * map.height {
-        // ! For debug
-        //let t = side_dist.x.min(side_dist.y);
-        //let hit_pos = *unit_pos + dir * t;
-        //let new_pos = scale_up_position(hit_pos);
-
         if side_dist.x < side_dist.y {
             hit_x = true;
             side_dist.x += delta_dist.x;
@@ -327,13 +301,10 @@ fn single_ray_projection(textures: &[Texture], unit_pos: &Vec2, map_pos: &Vec2, 
         i += 1;
     }
 
-    let texture_type = map.data[ ((map_pos.y as usize) * map.width) + (map_pos.x as usize) ];
-    let texture = &textures[(texture_type-1) as usize];
-
-    project_ray(texture, hit_x, unit_pos, &dir, delta_dist, side_dist, x_draw)
+    project_ray(hit_x, delta_dist, side_dist, x_draw);
 }
 
-fn project_ray(texture: &Texture, hit_x: bool, unit_pos: &Vec2, dir: &Vec2, delta_dist: Vec2, side_dist: Vec2, x_pos: &f32) -> Vec<Color> {
+fn project_ray(hit_x: bool, delta_dist: Vec2, side_dist: Vec2, x_pos: &f32) {
     let perp_dist = if hit_x {
         side_dist.x - delta_dist.x
     } else {
@@ -342,8 +313,6 @@ fn project_ray(texture: &Texture, hit_x: bool, unit_pos: &Vec2, dir: &Vec2, delt
 
     let line_height = (screen_height() / perp_dist).min(screen_height());
     let start = screen_height() / 2. - line_height / 2.;
-
-    /* ! For debug only
     let end = screen_height() / 2. + line_height / 2.;
 
     draw_line(
@@ -353,39 +322,6 @@ fn project_ray(texture: &Texture, hit_x: bool, unit_pos: &Vec2, dir: &Vec2, delt
         end, 
         1., 
         palette::pseudo_light_interpolation(LIGHTGRAY, ( BRIGHTNESS_FACTOR / perp_dist ).min(1.)));
-    */
-    
-    let wall_hit = if hit_x {
-        unit_pos.y + perp_dist * dir.y
-    } else {
-        unit_pos.x + perp_dist * dir.x
-    };
-
-    let hit_fraction = wall_hit.fract();
-
-    let scaled_texture_height = texture.texture.height() as f32 / line_height;
-    let texture_x = hit_fraction * texture.texture.width() as f32;
-    let mut color_col: Vec<Color> = Vec::new();
-
-    for screen_y in 0..(line_height as usize) {
-        let texture_y = screen_y as f32 * scaled_texture_height;
-
-        for _ in 0..(screen_y + start as usize) {
-            color_col.push(palette::TRANS);
-        }
-
-        //let pixel = texture.pixels[texture_y as usize * texture.texture.width() + texture_x as usize];
-        let pixel = texture.texture.get_pixel(texture_x as u32, texture_y as u32);
-        let pixel_shaded = palette::pseudo_light_interpolation(
-            pixel, 
-            ( BRIGHTNESS_FACTOR / perp_dist ).min(1.)
-        );
-        color_col.push(pixel_shaded);
-        
-        let y_pos = screen_y as f32 + start;
-        //draw_rectangle(*x_pos, y_pos, 1., 1., pixel_shaded);
-    }
-    color_col
 }
 
 fn _scale_up_position(pos: Vec2) -> Vec2 {
