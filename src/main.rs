@@ -1,9 +1,10 @@
-use macroquad::prelude::*;
+use macroquad::{miniquad::window::set_mouse_cursor, prelude::*};
 mod palette;
 
 const CELL_SIZE: f32 = 32.;
 const CAMERA_SIZE: f32 = 8.;
 const CAMERA_SPEED: f32 = 1.5;
+const CAMERA_ROT_SPEED: f32 = 5.;
 
 struct Map {
     data: Vec<u8>,
@@ -13,6 +14,7 @@ struct Map {
 
 struct Camera {
     fov: f32,
+    angle: f32,
     pos: Vec2,
     dir: Vec2,
     vel: Vec2,
@@ -41,12 +43,13 @@ async fn main() {
 
     let mut cam = Camera { 
         fov: 90.,
+        angle: 0.,
         pos: Vec2::new(40., 40.),
         dir: Vec2::new(0., 0.),  
         vel: Vec2::new(0., 0.),
     };
 
-    let mut min_map_visible = true;
+    let mut min_map_visible = false;
 
     loop {
         clear_background(palette::BLACK);
@@ -56,23 +59,23 @@ async fn main() {
         } else if is_key_pressed(KeyCode::M) {
             min_map_visible = !min_map_visible;
         }
-        
-        if min_map_visible {
-            draw_map(&map);
-            draw_camera(&cam);
-        }
 
         camera_dir(&mut cam);
         update_cam_pos(&mut cam);
         camera_collisions(&mut cam, &map);
 
-        test_ray(&cam, &map);
+        projection(&cam, &map);
+
+        if min_map_visible {
+            draw_min_map(&map);
+            draw_camera(&cam);
+        }
 
         next_frame().await
     }
 }
 
-fn draw_map(map: &Map) {
+fn draw_min_map(map: &Map) {
     for y in 0..map.height {
     for x in 0..map.width  {
         let idx = y * map.width + x;
@@ -100,20 +103,27 @@ fn draw_camera(cam: &Camera) {
 }
 
 fn camera_dir(cam: &mut Camera) {
-    let dir_vec = Vec2 {
-         x: mouse_position().0 - cam.pos.x, 
-         y: mouse_position().1 - cam.pos.y
-    };
+    if is_key_down(KeyCode::D) {
+        cam.angle -= CAMERA_ROT_SPEED;
+    } else if  is_key_down(KeyCode::A) {
+        cam.angle += CAMERA_ROT_SPEED;
+    }
 
-    cam.dir = dir_vec.normalize();
+    cam.dir = polar_to_cartesian(1., cam.angle.to_radians());
 }
 
 fn update_cam_pos(cam: &mut Camera) {
-    if !is_key_down(KeyCode::W) {
-        return;
+    let dir: f32;
+
+    if is_key_down(KeyCode::W) {
+        dir = 1.;
+    } else if is_key_down(KeyCode::S) {
+        dir = -1.;
+    } else {
+        dir = 0.;
     }
 
-    cam.vel = cam.dir * CAMERA_SPEED;
+    cam.vel = cam.dir * dir * CAMERA_SPEED;
     cam.pos += cam.vel;
 }
 
@@ -175,48 +185,51 @@ fn resolve_collisions(cam_pos: Vec2, min: Vec2, max: Vec2) -> Vec2 {
     new_pos
 }
 
-fn test_ray(cam: &Camera, map: &Map) {
-    draw_line(
-        cam.pos.x, 
-        cam.pos.y, 
-        cam.pos.x + cam.dir.x * CELL_SIZE * (map.width as f32), 
-        cam.pos.y + cam.dir.y * CELL_SIZE * (map.height as f32), 
-        3., 
-        GREEN);
-    
+fn projection(cam: &Camera, map: &Map) {
     let unit_pos = scale_down_position(cam.pos);
-    let mut map_pos = map_position(unit_pos);
+    let map_pos = map_position(unit_pos);
 
-    let delta_dist = Vec2::new(
-        (1. / cam.dir.x).abs(),
-        (1. / cam.dir.y).abs()
-    );
+    let fov_factor = (cam.fov / 2.).tan();
+    let cam_plane = Vec2::new(cam.dir.y * fov_factor, -cam.dir.x * fov_factor);
 
-    let mut side_dist = Vec2::new(0., 0.);
-    if cam.dir.x > 0. { 
-        side_dist.x = (map_pos.x + 1. - unit_pos.x) * delta_dist.x; 
-    } else { 
-        side_dist.x = (unit_pos.x - map_pos.x) * delta_dist.x; 
+    for x in 0..(screen_width() as usize) {
+        let x_draw_pos = 2. * x as f32 / screen_width() - 1.0;
+        let ray_dir = Vec2::new(
+            cam.dir.x + cam_plane.x * x_draw_pos,
+            cam.dir.y + cam_plane.y * x_draw_pos);
+        single_ray_projection(&unit_pos, &map_pos, map, ray_dir, &(x as f32));
     }
-    if cam.dir.y > 0. { 
-        side_dist.y = (map_pos.y + 1. - unit_pos.y) * delta_dist.y; 
-    } else { 
-        side_dist.y = (unit_pos.y - map_pos.y) * delta_dist.y; 
-    }
+}
+
+fn single_ray_projection(unit_pos: &Vec2, map_pos: &Vec2, map: &Map, dir: Vec2, x_draw: &f32) {
+    let mut map_pos = *map_pos;
 
     let step = Vec2::new(
-        if cam.dir.x > 0.0 { 1. } else { -1. },
-        if cam.dir.y > 0.0 { 1. } else { -1. },
+        if dir.x > 0. { 1. } else {-1.},
+        if dir.y > 0. { 1. } else {-1.},
     );
 
-    let mut hit_x: bool = false;
-    while map.data[((map_pos.y as usize) * map.width) + (map_pos.x as usize)] == 0 {
+    let delta_dist = Vec2::new(
+        1. / dir.x.abs(),
+        1. / dir.y.abs());
+    
+    let mut side_dist = Vec2::new(
+        if dir.x > 0. { (map_pos.x + 1. - unit_pos.x) * delta_dist.x }
+        else { (unit_pos.x - map_pos.x) * delta_dist.x },
+        if dir.y > 0. { (map_pos.y + 1. - unit_pos.y) * delta_dist.y }
+        else { (unit_pos.y - map_pos.y) * delta_dist.y },
+    );
 
-        let t = side_dist.x.min(side_dist.y);
-        let hit = unit_pos + cam.dir * t;
-        let new_pos = scale_up_position(hit);
+    let mut hit_x = false;
+    let mut final_pos: Vec2 = Vec2::new(-1., -1.);
+    let mut i: usize = 0;
 
-        draw_circle(new_pos.x, new_pos.y, 3., YELLOW);
+    while map.data[ ((map_pos.y as usize) * map.width) + (map_pos.x as usize) ] == 0 && i <= map.width * map.height {
+        // ! For debug
+        //let t = side_dist.x.min(side_dist.y);
+        //let hit_pos = *unit_pos + dir * t;
+        //let new_pos = scale_up_position(hit_pos);
+
         if side_dist.x < side_dist.y {
             hit_x = true;
             side_dist.x += delta_dist.x;
@@ -226,12 +239,12 @@ fn test_ray(cam: &Camera, map: &Map) {
             side_dist.y += delta_dist.y;
             map_pos.y += step.y;
         }
+        i += 1;
     }
-    test_project_ray(hit_x, delta_dist, side_dist);
-
+    project_ray(hit_x, delta_dist, side_dist, x_draw);
 }
 
-fn test_project_ray(hit_x: bool, delta_dist: Vec2, side_dist: Vec2) {
+fn project_ray(hit_x: bool, delta_dist: Vec2, side_dist: Vec2, x_pos: &f32) {
     let perp_dist = if hit_x {
         side_dist.x - delta_dist.x
     } else {
@@ -239,11 +252,10 @@ fn test_project_ray(hit_x: bool, delta_dist: Vec2, side_dist: Vec2) {
     };
 
     let line_height = screen_height() / perp_dist;
-    let x_pos = screen_width() / 2.;
     let start = screen_height() / 2. - line_height / 2.;
     let end = screen_height() / 2. + line_height / 2.;
 
-    draw_line(x_pos, start, x_pos, end, 5., LIME);
+    draw_line(*x_pos, start, *x_pos, end, 5., LIGHTGRAY);
 }
 
 fn scale_up_position(pos: Vec2) -> Vec2 {
