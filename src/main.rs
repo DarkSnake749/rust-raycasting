@@ -1,5 +1,7 @@
 use macroquad::prelude::*;
+use macroquad::window::*;
 use macroquad::audio::*;
+
 mod palette;
 
 const CELL_SIZE: f32 = 32.;
@@ -128,6 +130,10 @@ async fn main() {
                 },
             )
         };
+
+        let fps = format!("FPS: {}", get_fps());
+        draw_text(&fps, 20., 40., 30., GREEN);
+
         next_frame().await
     }
 }
