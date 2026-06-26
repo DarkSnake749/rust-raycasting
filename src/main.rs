@@ -1,4 +1,5 @@
 use macroquad::prelude::*;
+use macroquad::audio::*;
 mod palette;
 
 const CELL_SIZE: f32 = 32.;
@@ -25,6 +26,18 @@ struct Camera {
 #[macroquad::main("Raycaster")]
 async fn main() {
     request_new_screen_size(1080., 720.);
+
+    let theme_music = load_sound("resources/sounds/theme.ogg").await.unwrap();
+    play_sound(
+        &theme_music, 
+        PlaySoundParams {
+            looped: true,
+            volume: 0.75
+    });
+
+    let sky_image = load_texture("resources/sprites/sky.png").await.unwrap();
+    let shotgun_image = load_texture("resources/sprites/shotgun.png").await.unwrap();
+    //shotgun_image.
 
     let map= Map { 
         data: vec![
@@ -56,9 +69,22 @@ async fn main() {
     loop {
         clear_background(palette::BLACK);
 
+        // Background
+        draw_texture_ex(
+            &sky_image, 
+            0., 
+            0., 
+            WHITE,
+            DrawTextureParams { 
+                dest_size: Some(vec2(screen_width(), screen_height() / 2.)), 
+                ..Default::default()
+            }
+        );
+        draw_rectangle(0., (screen_height()) / 2. - 30., screen_width(), (screen_height()) / 2. + 30., palette::BLACK);
+
         if is_key_pressed(KeyCode::Escape) {
             break;
-        } else if is_key_pressed(KeyCode::M) {
+        } else if is_key_pressed(KeyCode::Tab) {
             min_map_visible = !min_map_visible;
         }
 
@@ -73,6 +99,20 @@ async fn main() {
             draw_camera(&cam);
         }
 
+        // Shotgun
+        draw_texture_ex(
+            &shotgun_image, 
+            screen_width() / 2. - shotgun_image.width() * 0.5 / 2., 
+            screen_height() - shotgun_image.height() * 0.5 + 30., 
+            WHITE,
+            DrawTextureParams {
+                dest_size: Some(vec2(
+                    shotgun_image.width() * 0.5,
+                    shotgun_image.height() * 0.5,
+                )),
+                ..Default::default()
+            },
+        );
         next_frame().await
     }
 }
