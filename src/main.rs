@@ -1,4 +1,4 @@
-use macroquad::{miniquad::window::set_mouse_cursor, prelude::*};
+use macroquad::prelude::*;
 mod palette;
 
 const CELL_SIZE: f32 = 32.;
@@ -257,13 +257,14 @@ fn project_ray(hit_x: bool, delta_dist: Vec2, side_dist: Vec2, x_pos: &f32) {
     let start = screen_height() / 2. - line_height / 2.;
     let end = screen_height() / 2. + line_height / 2.;
 
+    //println!("{:?}", palette::pseudo_light_interpolation(LIGHTGRAY, perp_dist / BRIGHTNESS_FACTOR));
     draw_line(
         *x_pos, 
         start, 
         *x_pos, 
         end, 
-        5., 
-        palette::pseudo_light_interpolation(LIGHTGRAY, perp_dist / BRIGHTNESS_FACTOR));
+        1., 
+        palette::pseudo_light_interpolation(LIGHTGRAY, ( BRIGHTNESS_FACTOR / perp_dist ).min(1.)));
 }
 
 fn scale_up_position(pos: Vec2) -> Vec2 {

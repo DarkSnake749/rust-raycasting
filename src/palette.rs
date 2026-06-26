@@ -22,11 +22,11 @@ pub const DARK_RED: Color   = Color::from_hex(0xcc0000);
 
 pub fn pseudo_light_interpolation(origin_color: Color, brightness: f32) -> Color {
     let brightness = (brightness, brightness, brightness);
-    let new_color = Color::from_rgba(
-        ( (origin_color.r as f32) * brightness.0 ).max(255.) as u8, 
-        ( (origin_color.g as f32) * brightness.1 ).max(255.) as u8, 
-        ( (origin_color.b as f32) * brightness.2 ).max(255.) as u8, 
-        255
+    let new_color = Color::new(
+        ( (origin_color.r as f32) * brightness.0 ).min(1.), 
+        ( (origin_color.g as f32) * brightness.1 ).min(1.), 
+        ( (origin_color.b as f32) * brightness.2 ).min(1.), 
+        1.
     );
 
     new_color
