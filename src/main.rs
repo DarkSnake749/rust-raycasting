@@ -2,6 +2,8 @@ use macroquad::{miniquad::window::set_mouse_cursor, prelude::*};
 mod palette;
 
 const CELL_SIZE: f32 = 32.;
+const BRIGHTNESS_FACTOR: f32 = 1.5;
+
 const CAMERA_SIZE: f32 = 8.;
 const CAMERA_SPEED: f32 = 1.5;
 const CAMERA_ROT_SPEED: f32 = 5.;
@@ -255,7 +257,13 @@ fn project_ray(hit_x: bool, delta_dist: Vec2, side_dist: Vec2, x_pos: &f32) {
     let start = screen_height() / 2. - line_height / 2.;
     let end = screen_height() / 2. + line_height / 2.;
 
-    draw_line(*x_pos, start, *x_pos, end, 5., LIGHTGRAY);
+    draw_line(
+        *x_pos, 
+        start, 
+        *x_pos, 
+        end, 
+        5., 
+        palette::pseudo_light_interpolation(LIGHTGRAY, perp_dist / BRIGHTNESS_FACTOR));
 }
 
 fn scale_up_position(pos: Vec2) -> Vec2 {
